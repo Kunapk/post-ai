@@ -1,0 +1,72 @@
+# ============================
+# General / Miscellaneous
+# ============================
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# ============================
+# IDE / Editor
+# ============================
+*.iml
+*.ipr
+*.iws
+.idea/
+# Uncomment if you don’t want VSCode settings in repo
+# .vscode/
+
+# ============================
+# Flutter / Dart
+# ============================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+flutter_export_environment.sh
+
+# ============================
+# Android
+# ============================
+.android/
+.gradle/
+local.properties
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# ============================
+# iOS / Xcode
+# ============================
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/.symlinks/
+ios/Pods/
+ios/Podfile.lock
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/build/
+ios/Runner/GeneratedPluginRegistrant.*
+
+*.xcworkspace/
+*.xcuserstate
+*.xcuserdata/
+DerivedData/
+
+# ============================
+# Build Artifacts
+# ============================
+app.*.symbols
+app.*.map.json
