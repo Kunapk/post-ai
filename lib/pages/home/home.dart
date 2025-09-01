@@ -8,6 +8,8 @@ import 'package:pos/constants/values.dart';
 import 'package:pos/model/cart_model.dart';
 import 'package:pos/model/category_model.dart';
 import 'package:pos/model/menu_model.dart';
+import 'package:pos/pages/ai/floating_AI_button_mobile.dart';
+import 'package:pos/pages/ai/voice_ai_controller.dart';
 import 'package:pos/pages/home/bloc/home_bloc.dart';
 import 'package:pos/pages/home/widgets/cart_bottom_sheet.dart';
 import 'package:pos/pages/home/widgets/drawer_menu.dart';
@@ -70,11 +72,25 @@ class _HomePageState extends State<HomePage> {
           return Scaffold(
             drawerEnableOpenDragGesture: true,
             key: _key,
-            body: Column(
+            body: Stack(
               children: [
-                _buildHeader(),
-                _buildCategory(),
-                Expanded(child: _buildMenu()),
+                Column(
+                  children: [
+                    _buildHeader(),
+                    _buildCategory(),
+                    Expanded(child: _buildMenu()),
+                  ],
+                ),
+
+                // === Floating AI Button ===
+                FloatingAIButtonMobile(
+                  onPressed: () {
+                    debugPrint("🎙️ เปิดโหมด AI (Mobile)");
+                    context.read<VoiceAIController>().handleVoiceInput(context);
+                  },
+                  lastMessage: "สวสัดีค่ะ มีอะไรให้ช่วยไหมคะ?", // ✅ แสดง bubble
+                  // หรือผูกกับ context.watch<VoiceAIController>().latestReply
+                ),
               ],
             ),
             drawer: DrawerMenu(),

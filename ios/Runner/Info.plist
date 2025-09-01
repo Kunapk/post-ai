@@ -32,6 +32,7 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -45,5 +46,18 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<!-- ✅ Permissions สำหรับ Voice + Camera + Bluetooth -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>แอปต้องการใช้งานไมโครโฟนเพื่อรับเสียงของคุณ</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>แอปต้องการใช้งานการรู้จำเสียงเพื่อสั่งงานด้วยเสียง</string>
+	<key>NSCameraUsageDescription</key>
+	<string>แอปต้องการใช้กล้องเพื่อสแกนบาร์โค้ด</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>แอปต้องการใช้งานบลูทูธเพื่อเชื่อมต่อเครื่องพิมพ์</string>
+	<!-- สำหรับความเข้ากันได้กับ iOS เก่าบางเวอร์ชัน -->
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>แอปต้องการใช้งานบลูทูธเพื่อเชื่อมต่ออุปกรณ์เสริม</string>
 </dict>
 </plist>

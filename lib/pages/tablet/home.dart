@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:pos/constants/values.dart';
 import 'package:pos/model/category_model.dart';
 import 'package:pos/model/menu_model.dart';
+import 'package:pos/pages/ai/floating_AI_button_mobile.dart';
+import 'package:pos/pages/ai/voice_ai_controller.dart';
 import 'package:pos/pages/home/bloc/home_bloc.dart';
 import 'package:pos/pages/home/widgets/menu_card.dart';
 import 'package:pos/pages/home/widgets/price_bottom_sheet.dart';
@@ -71,10 +73,22 @@ class _TabletHomeState extends State<TabletHome> {
           return Scaffold(
             drawerEnableOpenDragGesture: true,
             key: _key,
-            body: Column(
+            body: Stack(
               children: [
-                _buildHeader(context),
-                Expanded(child: _buildTabletLayout(context)),
+                Column(
+                  children: [
+                    _buildHeader(context),
+                    Expanded(child: _buildTabletLayout(context)),
+                  ],
+                ),
+                // ปุ่ม AI ลอย
+                FloatingAIButtonMobile(
+                  onPressed: () {
+                    debugPrint("🎙️ เปิดโหมด AI");
+                    context.read<VoiceAIController>().handleVoiceInput(context);
+                  },
+                  lastMessage: "กำลังสั่ง ชานมไข่มุก", // ✅ แสดง bubble
+                ),
               ],
             ),
             drawer: _buildDrawer(theme, context),

@@ -2,24 +2,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "pos (Android debug)",
+      "name": "pos (iOS debug)",
       "request": "launch",
       "type": "dart",
-      "deviceId": "android"
+      "deviceId": "iPhone 16 Plus"
     },
     {
-      "name": "pos (Android profile)",
+      "name": "pos (iOS profile)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "profile",
-      "deviceId": "android"
+      "deviceId": "iPhone 15 Pro"
     },
     {
-      "name": "pos (Android release)",
+      "name": "pos (iOS release)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "release",
-      "deviceId": "android"
+      "deviceId": "iPhone 15 Pro"
     }
   ]
 }
