@@ -100,12 +100,31 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   void _onFetchData(FetchDataEvent event, Emitter<HomeState> emit) async {
     try {
+      debugPrint('===== FetchDataEvent Started =====');
+
+      // 🔓 Guest mode can now call PUBLIC API endpoints
+      // (Category and Menu don't require authentication)
+      if (jwtToken == null) {
+        debugPrint('🔓 Guest mode - fetching public API endpoints');
+      } else {
+        debugPrint('🔐 Authenticated mode - token available');
+      }
+
+      debugPrint('📡 Fetching categories...');
       categories = await _categoryRepository.get();
+      debugPrint('✅ Categories fetched: ${categories?.length} items');
       emit(CaterotyLoaded(categories: categories));
+
+      debugPrint('📡 Fetching menus...');
       if (menus!.isEmpty) {
         menus = await _menuRepository.get();
+        debugPrint('✅ Menus fetched: ${menus?.length} items');
       } else {
+        debugPrint(
+          '📡 Menus already exist: ${menus?.length} items, fetching new...',
+        );
         var newMenu = await _menuRepository.get();
+        debugPrint('✅ New menus fetched: ${newMenu?.length} items');
         for (var menu in newMenu!) {
           var obj = menus!.where((e) => e.id == menu.id).firstOrNull;
           if (obj == null) {
@@ -113,6 +132,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           }
         }
       }
+
       if (shoppingCarts!.isNotEmpty) {
         int count = 0;
         double total = 0;
@@ -126,11 +146,21 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         emit(CartCountState(carts: innerList, count: count, total: total));
       }
 
+      debugPrint('🎉 Emitting MenuLoaded state with ${menus?.length} menus');
       emit(MenuLoaded(menus: menus));
+      debugPrint('===== FetchDataEvent Completed =====');
     } catch (e) {
-      if (e is ApiException) {}
+      debugPrint('❌ FetchDataEvent ERROR: $e');
+      debugPrint('❌ Error type: ${e.runtimeType}');
+      if (e is ApiException) {
+        debugPrint('❌ ApiException: ${e.message}');
+      }
       if (e is UnauthorizedException) {
-        _authenticationRepository.logOut();
+        debugPrint('❌ UnauthorizedException: ${e.message}');
+        if (jwtToken != null) {
+          // Only logout if authenticated user
+          _authenticationRepository.logOut();
+        }
       }
     }
   }
@@ -525,23 +555,52 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     emit(ItemCountState(menu: menuModel));
 
     double totalAmpunt = event.price.price * event.qty;
-    //
 
-    Cart shopingCart = Cart(
-      menuId: menuModel.id,
-      categoryId: menuModel.categoryId,
-      title: '${menuModel.name}(${event.price.title})',
-      price: event.price.price,
-      quantity: event.qty,
-      total: totalAmpunt,
-      image: menuModel.image,
+    // ✅ Check if cart item already exists (same menu, same price)
+    Cart? existingCart = shoppingCarts!.firstWhere(
+      (e) => e.menuId == menuModel.id && e.price == event.price.price,
+      orElse: () => Cart(
+        menuId: null,
+        categoryId: null,
+        title: null,
+        price: null,
+        quantity: 0,
+        total: 0,
+        image: null,
+      ),
     );
+
+    if (existingCart.menuId != null) {
+      // 🔄 Cart item exists - update quantity and total
+      debugPrint(
+        '🔄 Cart item exists for ${menuModel.name} @ ฿${event.price.price} - updating qty',
+      );
+      existingCart.quantity += event.qty;
+      existingCart.total = existingCart.price! * existingCart.quantity;
+    } else {
+      // ➕ Create new cart item
+      debugPrint(
+        '➕ Adding new cart item: ${menuModel.name} @ ฿${event.price.price} qty: ${event.qty}',
+      );
+      Cart shopingCart = Cart(
+        menuId: menuModel.id,
+        categoryId: menuModel.categoryId,
+        title: '${menuModel.name}(${event.price.title})',
+        price: event.price.price,
+        quantity: event.qty,
+        total: totalAmpunt,
+        image: menuModel.image,
+      );
+      shoppingCarts!.add(shopingCart);
+      existingCart = shopingCart;
+    }
+
     event.price.selected = false;
-    //
-    shoppingCarts!.add(shopingCart);
+
     ///// MQTT ADD DISPLAY ITEM /////
-    _addDisplayItem(shopingCart);
+    _addDisplayItem(existingCart);
     ////////////////////////////////
+
     int count = 0;
     double total = 0;
     List<Cart> innerList = shoppingCarts!.where((e) => e.quantity > 0).toList();

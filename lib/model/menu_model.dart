@@ -1,6 +1,6 @@
 class Menu {
   final String id;
-  final String categoryId; 
+  final String categoryId;
   final String name;
   final String? description;
   final List<MenuPrice> prices;
@@ -9,26 +9,62 @@ class Menu {
   int quantity;
   double price;
 
-  Menu(
-      {required this.id,
-      required this.categoryId, 
-      required this.name,
-      this.description,
-      required this.prices, 
-      this.quantity = 0,
-      this.price = 0,
-      required this.image});
+  Menu({
+    required this.id,
+    required this.categoryId,
+    required this.name,
+    this.description,
+    required this.prices,
+    this.quantity = 0,
+    this.price = 0,
+    required this.image,
+  });
 
   Menu.formJson(Map<String, dynamic> json, String imageUrl)
-  : id = json['_id'],
-    categoryId = json['categoryId'], 
-    name = json['name'],
-    description = json['description'],
-    quantity = 0,
-    prices =   List<Map<String, dynamic>>.from(json['prices']).map((e) => MenuPrice.formJson(e)).toList(),
-    // prices = [],
-    price = json['price'].toDouble(),
-    image = json['image'] == 'no-image.png' ? '$imageUrl${json['image']}' : '$imageUrl${json['userId']}/${json['image']}';
+    : id =
+          json['_id'] ?? json['id'].toString(), // ✅ Support both '_id' and 'id'
+      categoryId = json['categoryId'] ?? json['category_id']?.toString() ?? '0',
+      name = json['name'] ?? 'Unknown',
+      description = _parseDescription(
+        json['description'],
+      ), // ✅ Handle bool or string
+      quantity = 0,
+      prices = (json['prices'] != null && json['prices'] is List)
+          ? List<Map<String, dynamic>>.from(
+              json['prices'],
+            ).map((e) => MenuPrice.formJson(e)).toList()
+          : [],
+      price = (json['price'] ?? 0).toDouble(), // ✅ Support single price field
+      image = _buildImageUrl(json, imageUrl);
+
+  /// Parse description - handle both boolean and string
+  static String? _parseDescription(dynamic value) {
+    if (value is bool) {
+      return null; // If boolean, treat as no description
+    }
+    if (value is String) {
+      return value.isEmpty ? null : value;
+    }
+    return null;
+  }
+
+  /// API ส่ง base64 มาตรงๆในฟิลด์ image
+  /// ไม่ต้องเพิ่ม prefix หรือแปลง URL - ใช้ Image.memory() ตรงๆ
+  static String _buildImageUrl(Map<String, dynamic> json, String imageUrl) {
+    final imageValue = json['image']?.toString() ?? '';
+
+    // 🐛 Debug: show what we received from API
+    if (imageValue.isNotEmpty) {
+      final preview = imageValue.length > 80
+          ? imageValue.substring(0, 80)
+          : imageValue;
+      print('📦 Menu image from API (length: ${imageValue.length})');
+      print('   Preview: $preview...');
+    }
+
+    // ส่งค่า base64 string ที่ได้มาตรงๆ
+    return imageValue;
+  }
 }
 
 class MenuPrice {
@@ -37,13 +73,18 @@ class MenuPrice {
   int quantity;
   bool selected;
 
-  MenuPrice({required this.title, required this.price, this.selected = false, this.quantity = 0});
+  MenuPrice({
+    required this.title,
+    required this.price,
+    this.selected = false,
+    this.quantity = 0,
+  });
 
   MenuPrice.formJson(Map<String, dynamic> json)
-  : title = json['title'],
-  price = json['price'].toDouble(),
-  selected = false,
-  quantity = 0;
+    : title = json['title'],
+      price = json['price'].toDouble(),
+      selected = false,
+      quantity = 0;
 }
 
 class AdditionalPrice {
@@ -51,8 +92,11 @@ class AdditionalPrice {
   final double price;
   bool selected;
 
-  AdditionalPrice(
-      {required this.title, required this.price, this.selected = false});
+  AdditionalPrice({
+    required this.title,
+    required this.price,
+    this.selected = false,
+  });
 }
 
 // hot_americano.jpeg

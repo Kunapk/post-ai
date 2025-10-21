@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:formz/formz.dart';
 import 'package:pos/widgets/progress_dialog.dart';
+import 'package:pos/pages/responsive.dart';
 import './bloc/login_bloc.dart';
 import './components/login_rounded_button.dart';
 import './components/password_input.dart';
 import './components/username_input.dart';
+import './components/guest_login_button.dart';
 import '../../repository/authen/authen_repository.dart';
 
 class LoginPage extends StatefulWidget {
@@ -131,6 +133,17 @@ class _LoginPageState extends State<LoginPage> {
                             const PasswordInput(),
                             const SizedBox(height: 20),
                             const LoginButton(text: 'LOGIN'),
+                            const SizedBox(height: 10),
+                            GuestLoginButton(
+                              text: 'LOGIN AS GUEST',
+                              onPressed: () {
+                                debugPrint('Guest login pressed');
+                                Navigator.of(context).pushAndRemoveUntil<void>(
+                                  ResponsiveLayout.route(),
+                                  (route) => false,
+                                );
+                              },
+                            ),
                             // const RegisterButton(
                             //   text: 'REGISTER',
                             //   color: kOrangeColor,

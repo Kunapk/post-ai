@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pos/constants/values.dart';
 import 'package:pos/model/menu_model.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:pos/widgets/menu_image_widget.dart';
 import 'package:pos/pages/home/bloc/home_bloc.dart';
 
 class FoodCard extends StatefulWidget {
@@ -24,7 +24,7 @@ class FoodCard extends StatefulWidget {
 
 class _FoodCardState extends State<FoodCard>
     with SingleTickerProviderStateMixin {
-  Menu get menu => widget.menu; 
+  Menu get menu => widget.menu;
 
   @override
   void initState() {
@@ -135,18 +135,11 @@ class _FoodCardState extends State<FoodCard>
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(menuCardRadius),
         ),
-        child: CachedNetworkImage(
-          imageUrl: menu.image,
+        child: MenuImageWidget(
+          image: menu.image,
           fit: BoxFit.cover,
-          progressIndicatorBuilder: (context, url, downloadProgress) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(
-                value: downloadProgress.progress,
-              ),
-            ),
-          ),
-          errorWidget: (context, url, error) => const Icon(Icons.error),
+          width: double.infinity,
+          height: height,
         ),
       ),
     );

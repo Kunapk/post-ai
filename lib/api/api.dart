@@ -6,6 +6,7 @@ import 'package:pos/model/menu_model.dart';
 import 'package:pos/model/order_model.dart';
 import 'package:pos/model/order_view_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pos/constants/api_config.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -19,13 +20,10 @@ class UnauthorizedException implements Exception {
   const UnauthorizedException({this.message = ""});
 }
 
-// My Server
-// const apiBaseUrl = '127.0.0.1:8001';
-// const staticBaseUrl = '127.0.0.1:8001/';
-const apiBaseUrl = 'smartpos.safebsc.finance';
-const staticBaseUrl = 'smartpos.safebsc.finance/';
-
-const apiVersion = 'api/v1';
+// Deprecated: ใช้ ApiConfig แทน
+// const apiBaseUrl = 'localhost:8071';
+// const staticBaseUrl = 'localhost:8071/';
+// const apiVersion = 'api/v1';
 String? jwtToken;
 String? userId = "";
 String? _fullName;
@@ -43,6 +41,68 @@ class Api {
   factory Api() => _singleton;
   Api._internal() {
     // print('-----------> Api._internal');
+  }
+
+  /// =====================================================
+  /// Debug Helper Methods
+  /// =====================================================
+
+  void _printRequest(
+    String method,
+    Uri url, {
+    String? body,
+    Map<String, String>? headers,
+  }) {
+    final fullUrl = ApiConfig.getFullUrl(url.path);
+    debugPrint('');
+    debugPrint(
+      '╔════════════════════════════════════════════════════════════╗',
+    );
+    debugPrint(
+      '║ API REQUEST                                                ║',
+    );
+    debugPrint(
+      '╠════════════════════════════════════════════════════════════╣',
+    );
+    debugPrint('║ METHOD: $method');
+    debugPrint('║ URL: $fullUrl');
+    if (headers != null) {
+      debugPrint('║ HEADERS:');
+      headers.forEach((key, value) {
+        final displayValue = key.toLowerCase() == 'x-token'
+            ? '***token***'
+            : value;
+        debugPrint('║   $key: $displayValue');
+      });
+    }
+    if (body != null && body.isNotEmpty) {
+      debugPrint('║ BODY:');
+      debugPrint('║ $body');
+    }
+    debugPrint(
+      '╚════════════════════════════════════════════════════════════╝',
+    );
+    debugPrint('');
+  }
+
+  void _printResponse(int statusCode, String body) {
+    debugPrint('');
+    debugPrint(
+      '╔════════════════════════════════════════════════════════════╗',
+    );
+    debugPrint(
+      '║ API RESPONSE                                               ║',
+    );
+    debugPrint(
+      '╠════════════════════════════════════════════════════════════╣',
+    );
+    debugPrint('║ STATUS CODE: $statusCode');
+    debugPrint('║ RESPONSE:');
+    debugPrint('║ $body');
+    debugPrint(
+      '╚════════════════════════════════════════════════════════════╝',
+    );
+    debugPrint('');
   }
 
   bool hasToken() {
@@ -70,9 +130,11 @@ class Api {
   }
 
   String? get menuImageUrl {
-    return 'http://$staticBaseUrl';
+    final protocol = ApiConfig.useHttps ? 'https' : 'http';
+    return '$protocol://${ApiConfig.baseUrl}/';
   }
 
+  /// Headers with authentication token (for protected endpoints)
   Map<String, String>? get header {
     if (jwtToken == null) {
       throw UnauthorizedException(message: 'Token is missing');
@@ -81,6 +143,14 @@ class Api {
       'Content-type': 'application/json; charset=utf-8',
       'Accept': 'application/json',
       'x-token': jwtToken!,
+    };
+  }
+
+  /// Headers for public endpoints (no authentication required)
+  Map<String, String> get publicHeader {
+    return {
+      'Content-type': 'application/json; charset=utf-8',
+      'Accept': 'application/json',
     };
   }
 
@@ -121,14 +191,18 @@ class Api {
   Future<bool> login(String userName, String password) async {
     try {
       var body = json.encode({"email": userName, "password": password});
-      // var url = Uri.https(apiBaseUrl, '$apiVersion/auth/login');
+      var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/auth/login');
 
-      print('apiBaseUrl: $apiBaseUrl');
-      print('userName: $userName');
-      print('password: $password');
-
-      var url = Uri.https(apiBaseUrl, '$apiVersion/auth/login');
-      print('url: $url');
+      // Debug: Print request
+      _printRequest(
+        'POST',
+        url,
+        body: body,
+        headers: {
+          'Content-type': 'application/json; charset=utf-8',
+          'Accept': 'application/json',
+        },
+      );
 
       final response = await http.post(
         url,
@@ -138,6 +212,10 @@ class Api {
           'Accept': 'application/json',
         },
       );
+
+      // Debug: Print response
+      _printResponse(response.statusCode, response.body);
+
       if (response.statusCode == 200) {
         Map<String, dynamic> jsonMap = json.decode(response.body);
         debugPrint(jsonMap.toString());
@@ -157,7 +235,7 @@ class Api {
   Future<bool> deleteAccount() async {
     try {
       var body = json.encode({"_id": userId});
-      var url = Uri.https(apiBaseUrl, '$apiVersion/user');
+      var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/user');
       final response = await http.delete(url, body: body, headers: header);
       if (response.statusCode == 200) {
         return true;
@@ -193,7 +271,7 @@ class Api {
         "email": userName,
         "password": password,
       });
-      var url = Uri.https(apiBaseUrl, '$apiVersion/user/register');
+      var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/user/register');
       final response = await http.post(
         url,
         body: body,
@@ -223,7 +301,7 @@ class Api {
         "fb_token": token,
         "userId": userId,
       });
-      var url = Uri.https(apiBaseUrl, '$apiVersion/fb-token');
+      var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/fb-token');
       final response = await http.post(url, body: body, headers: header);
       debugPrint(jwtToken);
       if (response.statusCode == 200) {
@@ -266,12 +344,20 @@ class Api {
     return false;
   }
 
+  /// Fetch categories (PUBLIC endpoint - no auth required)
   Future<List<Category>?> getCategories() async {
-    var url = Uri.https(apiBaseUrl, '$apiVersion/category');
-    final response = await http.get(url, headers: header);
+    var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/category');
+
+    // Debug: Print request
+    _printRequest('GET', url, headers: publicHeader);
+
+    final response = await http.get(url, headers: publicHeader);
+
+    // Debug: Print response
+    _printResponse(response.statusCode, response.body);
+
     Map<String, dynamic> dataMap;
     if (response.statusCode == 200) {
-      debugPrint(response.body);
       List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
         jsonDecode(response.body)['data'],
       );
@@ -293,15 +379,40 @@ class Api {
     return [];
   }
 
+  /// Fetch menus/products (PUBLIC endpoint - no auth required)
   Future<List<Menu>?> getMenus() async {
-    var url = Uri.https(apiBaseUrl, '$apiVersion/menu');
-    final response = await http.get(url, headers: header);
+    var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/menu');
+
+    // Debug: Print request
+    _printRequest('GET', url, headers: publicHeader);
+
+    final response = await http.get(url, headers: publicHeader);
+
+    // Debug: Print response
+    _printResponse(response.statusCode, response.body);
+
     Map<String, dynamic> dataMap;
     if (response.statusCode == 200) {
-      debugPrint(response.body);
       List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
         jsonDecode(response.body)['data'],
       );
+
+      // 🐛 Debug: check first item image field
+      if (list.isNotEmpty) {
+        final firstItem = list[0];
+        final imageField = firstItem['image'];
+        debugPrint('🔍 First menu item image field:');
+        debugPrint('   Type: ${imageField.runtimeType}');
+        if (imageField is String) {
+          final preview = imageField.length > 80
+              ? imageField.substring(0, 80)
+              : imageField;
+          debugPrint('   String length: ${imageField.length}');
+          debugPrint('   Preview: $preview...');
+          debugPrint('   Starts with: ${imageField.substring(0, 20)}');
+        }
+      }
+
       List<Menu> innerList = list
           .map((e) => Menu.formJson(e, '$menuImageUrl'))
           .toList();
@@ -319,9 +430,17 @@ class Api {
   }
 
   Future<bool?> createOrder(OrderCreate order) async {
-    var url = Uri.https(apiBaseUrl, '$apiVersion/order');
+    var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/order');
     var body = order.toJson();
+
+    // Debug: Print request
+    _printRequest('POST', url, body: body, headers: header);
+
     final response = await http.post(url, body: body, headers: header);
+
+    // Debug: Print response
+    _printResponse(response.statusCode, response.body);
+
     Map<String, dynamic>? dataMap = Map<String, dynamic>.from(
       json.decode(response.body),
     );
@@ -344,8 +463,16 @@ class Api {
 
   Future<bool?> createClosePeriod(CreateClosePeriod model) async {
     var body = model.toJson();
-    var url = Uri.https(apiBaseUrl, '$apiVersion/store-finance');
+    var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/store-finance');
+
+    // Debug: Print request
+    _printRequest('POST', url, body: body, headers: header);
+
     final response = await http.post(url, body: body, headers: header);
+
+    // Debug: Print response
+    _printResponse(response.statusCode, response.body);
+
     Map<String, dynamic>? dataMap = Map<String, dynamic>.from(
       json.decode(response.body),
     );
@@ -368,8 +495,16 @@ class Api {
   }
 
   Future<List<OrderView>?> getCurrentOrder() async {
-    var url = Uri.https(apiBaseUrl, '$apiVersion/order/current');
+    var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/order/current');
+
+    // Debug: Print request
+    _printRequest('GET', url, headers: header);
+
     final response = await http.get(url, headers: header);
+
+    // Debug: Print response
+    _printResponse(response.statusCode, response.body);
+
     Map<String, dynamic> dataMap;
     if (response.statusCode == 200) {
       List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(
