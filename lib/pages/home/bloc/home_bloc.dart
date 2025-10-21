@@ -648,17 +648,28 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   void _onSubmitOrder(SubmitOrderEvent event, Emitter<HomeState> emit) async {
+    debugPrint('');
+    debugPrint('🟢 [_onSubmitOrder] Starting order submission');
+    debugPrint('   Total: ฿${event.total}');
+    debugPrint('   Payment: ฿${event.paymant}');
+    debugPrint('   Change: ฿${event.change}');
+    debugPrint('   Payment Type: ${event.type}');
+    debugPrint('   Items: ${event.carts.length}');
+
     var totalQty = 0;
     for (var cart in event.carts) {
       totalQty += cart.quantity;
     }
+
+    debugPrint('   Total Qty: $totalQty');
+
     OrderCreate order = OrderCreate(
       totalAmount: event.total,
       totalQty: totalQty,
       paymentType: event.type,
       orderDetail: [],
-      cash: 0,
-      change: 0,
+      cash: event.paymant, // ✅ Fixed: use actual payment
+      change: event.change, // ✅ Fixed: use actual change
     );
 
     for (var cart in event.carts) {
@@ -672,25 +683,42 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           totalAmount: cart.total,
         ),
       );
+      debugPrint(
+        '   - ${cart.title}: ${cart.quantity} x ฿${cart.price} = ฿${cart.total}',
+      );
     }
 
+    debugPrint('');
+    debugPrint('📦 Order JSON to send:');
     debugPrint(order.toJson());
-    bool? result = await _orderRepoository.createOrder(order);
-    if (result!) {
-      /// MQTT HOME DISPLAY ///
-      _paymentDisplayItem(event.total, event.paymant, event.change);
-      /////////////////////////
-      emit(
-        PaymentSuccess(
-          carts: event.carts,
-          totalAmount: event.total,
-          change: event.change,
-          payment: event.paymant,
-          isPrint: isPrint,
-          printerAddress: printerAddress,
-        ),
-      );
-    } else {
+    debugPrint('');
+
+    try {
+      debugPrint('⏳ Calling createOrder API...');
+      bool? result = await _orderRepoository.createOrder(order);
+
+      if (result!) {
+        debugPrint('✅ Order created successfully!');
+
+        /// MQTT HOME DISPLAY ///
+        _paymentDisplayItem(event.total, event.paymant, event.change);
+        /////////////////////////
+        emit(
+          PaymentSuccess(
+            carts: event.carts,
+            totalAmount: event.total,
+            change: event.change,
+            payment: event.paymant,
+            isPrint: isPrint,
+            printerAddress: printerAddress,
+          ),
+        );
+      } else {
+        debugPrint('❌ createOrder returned false');
+        emit(PaymentFailed());
+      }
+    } catch (e) {
+      debugPrint('❌ Exception: $e');
       emit(PaymentFailed());
     }
   }

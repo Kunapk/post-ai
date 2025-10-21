@@ -430,13 +430,35 @@ class Api {
   }
 
   Future<bool?> createOrder(OrderCreate order) async {
+    debugPrint('');
+    debugPrint('🟢 [createOrder] Starting order submission');
+    debugPrint(
+      '   jwtToken: ${jwtToken != null ? '✓ Present' : '✗ Missing (guest mode)'}',
+    );
+
     var url = ApiConfig.buildUri('${ApiConfig.apiVersion}/order');
+
+    // ✅ Fixed: order.toJson() already returns JSON string, don't encode again!
     var body = order.toJson();
 
-    // Debug: Print request
-    _printRequest('POST', url, body: body, headers: header);
+    debugPrint('   URL: ${ApiConfig.getFullUrl(url.path)}');
+    debugPrint(
+      '   Body (${body.length} chars): ${body.substring(0, body.length > 100 ? 100 : body.length)}...',
+    );
 
-    final response = await http.post(url, body: body, headers: header);
+    // 🔓 Use publicHeader if guest mode, otherwise use authenticated header
+    final requestHeaders = jwtToken != null ? header : publicHeader;
+    debugPrint('   Headers: ${requestHeaders?.keys.toList()}');
+
+    // Debug: Print request
+    _printRequest('POST', url, body: body, headers: requestHeaders);
+
+    debugPrint('   ⏳ Sending POST request...');
+    final response = await http.post(url, body: body, headers: requestHeaders);
+
+    debugPrint('   ✅ Response received');
+    debugPrint('   Status Code: ${response.statusCode}');
+    debugPrint('   Response Body: ${response.body}');
 
     // Debug: Print response
     _printResponse(response.statusCode, response.body);
@@ -444,20 +466,32 @@ class Api {
     Map<String, dynamic>? dataMap = Map<String, dynamic>.from(
       json.decode(response.body),
     );
-    if (response.statusCode == 201) {
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      debugPrint('   ✅ Status ${response.statusCode} (Created)');
       if (dataMap['result'] == true) {
+        debugPrint('   ✅✅ result == true → Order created successfully!');
         return true;
       }
+      debugPrint('   ⚠️ result != true');
     } else if (response.statusCode == 400) {
-      debugPrint(dataMap['data']);
+      debugPrint('   ❌ Status 400 (Bad Request)');
+      debugPrint('   Error: ${dataMap['message']}');
+      debugPrint('   Data: ${dataMap['data']}');
       throw ApiException(message: dataMap['message']);
     } else if (response.statusCode == 500) {
-      debugPrint(dataMap['data']);
+      debugPrint('   ❌ Status 500 (Server Error)');
+      debugPrint('   Error: ${dataMap['message']}');
+      debugPrint('   Data: ${dataMap['data']}');
       throw ApiException(message: dataMap['message']);
     } else if (response.statusCode == 401) {
-      debugPrint(dataMap['message']);
+      debugPrint('   ❌ Status 401 (Unauthorized)');
+      debugPrint('   Error: ${dataMap['message']}');
       throw UnauthorizedException(message: dataMap['message']);
+    } else {
+      debugPrint('   ❌ Unexpected status: ${response.statusCode}');
     }
+    debugPrint('   Return false');
     return false;
   }
 

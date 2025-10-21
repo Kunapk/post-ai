@@ -10,8 +10,11 @@ class PriceBottomSheet extends StatefulWidget {
   // final void Function(MenuPrice price) onRemoveTap;
   // final void Function(Menu menu) onAdditionalTap;
   final void Function(Menu menu, MenuPrice price, int qty) onConfirmTap;
-  const PriceBottomSheet(
-      {super.key, required this.menu, required this.onConfirmTap});
+  const PriceBottomSheet({
+    super.key,
+    required this.menu,
+    required this.onConfirmTap,
+  });
 
   @override
   State<PriceBottomSheet> createState() => _PriceBottomSheetState();
@@ -28,6 +31,18 @@ class _PriceBottomSheetState extends State<PriceBottomSheet> {
   int quantity = 1;
 
   @override
+  void initState() {
+    super.initState();
+    // ✅ Auto-select first price if only 1 price available
+    if (widget.menu.prices.isNotEmpty && widget.menu.prices.length == 1) {
+      debugPrint(
+        '🔵 [PriceBottomSheet] Only 1 price available - auto-selecting first',
+      );
+      widget.menu.prices[0].selected = true;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     var size = MediaQuery.of(context).size;
     var height = size.width < 500 ? size.height * .60 : size.height * .70;
@@ -40,16 +55,16 @@ class _PriceBottomSheetState extends State<PriceBottomSheet> {
             buildTitle(context),
             // if (widget.menu.additional != null) buildAdditional(context),
             if (widget.menu.prices.isNotEmpty) ...[
-              const SizedBox(
-                height: 5,
-              ),
+              const SizedBox(height: 5),
               Expanded(child: buildChoicePriceList()),
               buildFooterQty(),
               SizedBox(
                 height: 70,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
-                      minWidth: double.infinity, minHeight: 70),
+                    minWidth: double.infinity,
+                    minHeight: 70,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
@@ -92,58 +107,76 @@ class _PriceBottomSheetState extends State<PriceBottomSheet> {
   }
 
   void confirmOrder() {
-    MenuPrice? selectedPrice =
-        widget.menu.prices.where((e) => e.selected).firstOrNull;
+    debugPrint('🔵 [PriceBottomSheet] confirmOrder() called');
+    debugPrint('   Menu: ${widget.menu.name}');
+    debugPrint('   Prices count: ${widget.menu.prices.length}');
+
+    MenuPrice? selectedPrice = widget.menu.prices
+        .where((e) => e.selected)
+        .firstOrNull;
+
+    debugPrint(
+      '   Selected price: ${selectedPrice?.title} @ ฿${selectedPrice?.price}',
+    );
+    debugPrint('   Quantity: $quantity');
+
     if (selectedPrice != null) {
+      debugPrint('   ✅ Calling onConfirmTap callback');
       widget.onConfirmTap(widget.menu, selectedPrice, quantity);
+    } else {
+      debugPrint('   ❌ No price selected!');
     }
   }
 
   Widget buildFooterQty() {
     return StreamBuilder<int>(
-        stream: quantityStream.stream,
-        initialData: quantity,
-        builder: (context, snapshot) {
-          return Row(
-            mainAxisSize: MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: <Widget>[
-              IconButton(
-                onPressed: () {
-                  quantity--;
-                  if (quantity < 1) {
-                    quantity = 1;
-                  }
-                  quantityStream.add(quantity);
-                },
-                icon: const Icon(
-                  Icons.remove_circle,
-                  size: 40,
-                  color: Colors.red,
+      stream: quantityStream.stream,
+      initialData: quantity,
+      builder: (context, snapshot) {
+        return Row(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            IconButton(
+              onPressed: () {
+                quantity--;
+                if (quantity < 1) {
+                  quantity = 1;
+                }
+                quantityStream.add(quantity);
+              },
+              icon: const Icon(
+                Icons.remove_circle,
+                size: 40,
+                color: Colors.red,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 1),
+              child: Text(
+                '$quantity',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 2.0, vertical: 1),
-                child: Text('$quantity',
-                    style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold)),
+            ),
+            IconButton(
+              onPressed: () {
+                quantity++;
+                quantityStream.add(quantity);
+              },
+              icon: Icon(
+                Icons.add_circle,
+                size: 40,
+                color: Theme.of(context).primaryColor,
               ),
-              IconButton(
-                onPressed: () {
-                  quantity++;
-                  quantityStream.add(quantity);
-                },
-                icon: Icon(
-                  Icons.add_circle,
-                  size: 40,
-                  color: Theme.of(context).primaryColor,
-                ),
-              ),
-            ],
-          );
-        });
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Widget buildAdditional(BuildContext context) {
@@ -244,7 +277,7 @@ class _PriceBottomSheetState extends State<PriceBottomSheet> {
             Text(widget.menu.name, style: headerStyle2),
           ],
         ),
-        const Spacer()
+        const Spacer(),
       ],
     );
   }

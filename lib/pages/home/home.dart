@@ -553,6 +553,19 @@ class _HomePageState extends State<HomePage> {
                                                   MenuPrice price,
                                                   int qty,
                                                 ) {
+                                                  debugPrint(
+                                                    '🟢 [home.dart] onConfirmTap callback received',
+                                                  );
+                                                  debugPrint(
+                                                    '   Menu: ${menu.name}',
+                                                  );
+                                                  debugPrint(
+                                                    '   Price: ${price.title} @ ฿${price.price}',
+                                                  );
+                                                  debugPrint('   Qty: $qty');
+                                                  debugPrint(
+                                                    '   Closing bottom sheet and adding event',
+                                                  );
                                                   Navigator.of(context).pop();
                                                   BlocProvider.of<HomeBloc>(
                                                     context,
@@ -562,6 +575,9 @@ class _HomePageState extends State<HomePage> {
                                                       price: price,
                                                       qty: qty,
                                                     ),
+                                                  );
+                                                  debugPrint(
+                                                    '   ✅ Event added to HomeBloc',
                                                   );
                                                 },
                                           );
