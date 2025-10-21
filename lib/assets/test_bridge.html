@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bridge Test</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; }
+    button + button { margin-left: 8px; }
+    pre { background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 10px; overflow: auto; }
+  </style>
+  <script>
+    // ฟังก์ชันช่วยแสดง alert ภายใน WebView
+    function showAlert(message) {
+      alert("[WEB] " + message);
+    }
+
+    // ส่งข้อความถึง Flutter ผ่าน JavaScriptChannel
+    // หมายเหตุ: webview_flutter v4 ใช้ window.<channel>.postMessage(String)
+    function sendToFlutter(type, payload) {
+      const msg = { type, payload, ts: Date.now() };
+      const json = JSON.stringify(msg);
+
+      // ช่องทางมาตรฐานของ webview_flutter
+      if (window.FlutterBridge && typeof window.FlutterBridge.postMessage === 'function') {
+        window.FlutterBridge.postMessage(json);
+      } else {
+        // เผื่อไว้เวลาเปิดในเบราว์เซอร์ธรรมดา
+        console.warn("FlutterBridge not found. Running in browser?");
+        showAlert("FlutterBridge not found. Are you in a real WebView?");
+      }
+    }
+
+    // native (Flutter) สามารถเรียกฟังก์ชันนี้กลับมาได้ด้วย runJavaScript(...)
+    function onNativeMessage(jsonString) {
+      try {
+        const msg = JSON.parse(jsonString);
+        const log = document.getElementById('log');
+        log.textContent = JSON.stringify(msg, null, 2);
+        showAlert("Received from native: " + (msg.type || "no type"));
+      } catch (e) {
+        showAlert("Invalid message from native");
+      }
+    }
+  </script>
+</head>
+<body>
+  <h2>WebView Bridge Test</h2>
+  <div class="card">
+    <p>กดปุ่มด้านล่างนี้เพื่อส่งข้อความไปหาแอป (Flutter). แอปจะตอบกลับแล้วสั่ง <code>alert()</code> ในหน้านี้</p>
+    <button onclick="sendToFlutter('ping', { text: 'Hello from HTML!' })">ส่งข้อความหาแอป</button>
+    <button onclick="showAlert('นี่คือ alert ที่ถูกเรียกจากเว็บเอง')">ทดสอบ alert() ตรง ๆ</button>
+  </div>
+
+  <h3>ข้อความล่าสุดจากแอป</h3>
+  <pre id="log">{}</pre>
+
+  <p style="opacity:.7">เคล็ดลับ: ฝั่งแอปเรียก <code>onNativeMessage(JSON.stringify({...}))</code> เพื่อส่งข้อความกลับมาหน้าเว็บนี้</p>
+</body>
+</html>

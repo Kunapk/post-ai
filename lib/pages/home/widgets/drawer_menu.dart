@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_bluetooth_printer/flutter_bluetooth_printer_library.dart';
+import 'package:pos/pages/ai/test/ai_agent_webview.dart';
+import 'package:pos/pages/ai/test/ai_talk_back.dart';
 import 'package:pos/pages/home/bloc/home_bloc.dart';
 import 'package:pos/pages/sale_report/sale_report_page.dart';
 import 'package:pos/repository/localized/languages.dart';
@@ -95,6 +97,36 @@ class DrawerMenu extends StatelessWidget {
               // await Navigator.of(context).push(
               //   About.route(),
               // );
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: Icon(
+              color: Theme.of(context).primaryColor,
+              Icons.list,
+              size: 32,
+            ),
+            title: const Text('ทดสอบ AI ผ่านเว็บ webview'),
+            onTap: () async {
+              Navigator.of(context).pop();
+              await Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (context) => AiAgentWebView()));
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: Icon(
+              color: Theme.of(context).primaryColor,
+              Icons.list,
+              size: 32,
+            ),
+            title: const Text('ทดสอบ AI คุยกับมา App'),
+            onTap: () async {
+              Navigator.of(context).pop();
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => BridgeTestWebView()),
+              );
             },
           ),
           const Divider(),

@@ -12,10 +12,15 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  
+  webview_flutter: ^4.7.0
+  webview_flutter_wkwebview: ^3.14.0
+  url_launcher: ^6.3.0
 
   # ✅ AI + Voice
   google_generative_ai: ^0.4.7
-  speech_to_text: ^6.6.0
+  # speech_to_text: ^6.6.0
+  speech_to_text: ^6.6.2
   flutter_tts: ^4.0.2
 
   # ของเดิม...

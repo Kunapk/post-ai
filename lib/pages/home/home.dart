@@ -26,6 +26,7 @@ import 'package:pos/repository/order/order_repoository.dart';
 import 'package:quickalert/models/quickalert_type.dart';
 import 'package:quickalert/widgets/quickalert_dialog.dart';
 import 'package:simple_barcode_scanner/simple_barcode_scanner.dart';
+import 'package:provider/provider.dart'; // <-- สำหรับ read<VoiceAIController>()
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -43,10 +44,23 @@ class _HomePageState extends State<HomePage> {
       StreamController<Menu>.broadcast();
   final GlobalKey<ScaffoldState> _key = GlobalKey();
 
+  // ===== เก็บข้อมูลล่าสุดจาก Bloc เพื่อ sync เข้า VoiceAI =====
+  List<Category>? _latestCategories;
+  List<Menu>? _latestMenus;
+
+  void _trySyncVoiceCatalog(BuildContext context) {
+    if (_latestCategories != null && _latestMenus != null) {
+      // ส่งเข้าสู่ VoiceAIController
+      context.read<VoiceAIController>().syncCatalog(
+        menus: _latestMenus!,
+        categories: _latestCategories!,
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    // tabController2 = TabController(length: 4, vsync: this, initialIndex: 0);
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -76,7 +90,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Column(
                   children: [
-                    _buildHeader(),
+                    _buildHeader(), // มี BlocConsumer ที่เราใช้ฟัง state และ sync
                     _buildCategory(),
                     Expanded(child: _buildMenu()),
                   ],
@@ -88,12 +102,14 @@ class _HomePageState extends State<HomePage> {
                     debugPrint("🎙️ เปิดโหมด AI (Mobile)");
                     context.read<VoiceAIController>().handleVoiceInput(context);
                   },
-                  lastMessage: "สวสัดีค่ะ มีอะไรให้ช่วยไหมคะ?", // ✅ แสดง bubble
-                  // หรือผูกกับ context.watch<VoiceAIController>().latestReply
+                  lastMessage:
+                      context.watch<VoiceAIController>().latestReply.isNotEmpty
+                      ? context.watch<VoiceAIController>().latestReply
+                      : "สวัสดีค่ะ มีอะไรให้ช่วยไหมคะ?",
                 ),
               ],
             ),
-            drawer: DrawerMenu(),
+            drawer: const DrawerMenu(),
           );
         },
       ),
@@ -197,11 +213,27 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
+
+              // ===== จุดรวม listener หลายเหตุการณ์จาก HomeBloc =====
               BlocConsumer<HomeBloc, HomeState>(
                 listener: (context, state) async {
+                  // อัปเดตราคาในบอททอมชีต
                   if (state is ItemCountState) {
                     menuPriceStream.add(state.menu);
                   }
+
+                  // ซิงก์ Category ให้ VoiceAI เมื่อโหลดเสร็จ
+                  if (state is CaterotyLoaded) {
+                    _latestCategories = state.categories;
+                    _trySyncVoiceCatalog(context);
+                  }
+
+                  // ซิงก์ Menu ให้ VoiceAI เมื่อโหลดเสร็จ
+                  if (state is MenuLoaded) {
+                    _latestMenus = state.menus;
+                    _trySyncVoiceCatalog(context);
+                  }
+
                   if (state is ScanNotFoundState) {
                     QuickAlert.show(
                       context: context,
@@ -212,6 +244,7 @@ class _HomePageState extends State<HomePage> {
                       textAlignment: TextAlign.center,
                     );
                   }
+
                   if (state is PaymentState) {
                     showNumpadDialog(context, state.carts, state.totalAmount);
                   }
@@ -231,14 +264,14 @@ class _HomePageState extends State<HomePage> {
                     }
                   }
 
-                  if (state is PaymentFailed) {}
+                  if (state is PaymentFailed) {
+                    // TODO: แสดง error/payment fail ตามต้องการ
+                  }
                 },
                 builder: (context, state) {
                   return Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: TextField(
-                      // controller: textController,
-                      // focusNode: myFocusNode,
                       autofocus: false,
                       textInputAction: TextInputAction.search,
                       decoration: InputDecoration(
@@ -252,7 +285,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                         filled: true,
                         hintText: "Search",
-                        // border: InputBorder.none,
                         border: OutlineInputBorder(
                           borderSide: const BorderSide(
                             style: BorderStyle.none,
@@ -336,15 +368,13 @@ class _HomePageState extends State<HomePage> {
               child: SizedBox(
                 width: constraints.maxWidth < 500
                     ? screenSize.width * 0.95
-                    : screenSize.width * 0.65, // 95% of screen width
-                // height: screenSize.height * 0.7, // 50% of screen height
+                    : screenSize.width * 0.65,
                 height: constraints.maxWidth < 500 ? 600 : 680,
                 child: NumpadDialog(
                   totalAmount: totalAmount,
                   onCheckout: (double change, double paymant) async {
                     if (context.mounted) {
                       BlocProvider.of<HomeBloc>(ctx).add(
-                        // order submit
                         SubmitOrderEvent(
                           carts: carts!,
                           total: totalAmount!,
@@ -353,7 +383,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       );
                     }
-
                     if (context.mounted) {
                       Navigator.of(context).pop();
                     }
@@ -390,27 +419,6 @@ class _HomePageState extends State<HomePage> {
                 context,
               ).add(RemoveItemEvent(model: model, price: model.price!));
             },
-            // onCheckout: (List<Cart> carts, double total, double change,
-            //     double paymant) async {
-            //   Navigator.of(context).pop();
-
-            //   if (context.mounted) {
-            //     BlocProvider.of<HomeBloc>(context).add(
-            //       // order submit
-            //       SubmitOrderEvent(
-            //           carts: carts,
-            //           total: total,
-            //           change: change,
-            //           paymant: paymant),
-            //     );
-            //   }
-            //   await Navigator.of(context).push<void>(
-            //       PrintReceipt.route(carts, total, change, paymant),
-            //     );
-            //   if (context.mounted) {
-            //       BlocProvider.of<HomeBloc>(context).add(ClearOrderEvent());
-            //     }
-            // },
             onClearCart: () {
               BlocProvider.of<HomeBloc>(context).add(ClearOrderEvent());
               Navigator.of(context).pop();
@@ -556,21 +564,6 @@ class _HomePageState extends State<HomePage> {
                                                     ),
                                                   );
                                                 },
-                                            // onAddTap: (
-                                            //   MenuPrice price,
-                                            // ) {
-                                            //   BlocProvider.of<HomeBloc>(context)
-                                            //       .add(AddItemPriceEvent(
-                                            //           model: menu, price: price));
-                                            // },
-                                            // onRemoveTap: (MenuPrice price) {
-                                            //   BlocProvider.of<HomeBloc>(context)
-                                            //       .add(RemoveItemPriceEvent(
-                                            //           model: menu, price: price));
-                                            // }, onAdditionalTap: (Menu menu) {
-                                            //   BlocProvider.of<HomeBloc>(context)
-                                            //       .add(AdditionalEvent(menu:  menu));
-                                            //  },
                                           );
                                         },
                                       );
