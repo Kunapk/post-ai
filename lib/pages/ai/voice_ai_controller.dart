@@ -1,9 +1,9 @@
 // lib/pages/ai/voice_ai_controller.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter/foundation.dart' hide Category;
+import 'package:firebase_ai/firebase_ai.dart';
 
-import 'gemini_constants.dart';
 import 'intent_parser.dart';
 import 'voice_io.dart';
 import 'package:pos/model/menu_model.dart';
@@ -16,7 +16,7 @@ class VoiceAIController extends ChangeNotifier {
 
   // ===== Gemini =====
   late final GenerativeModel model;
-  late final ChatSession chat;
+  ChatSession? chat;
 
   // ===== Chat UI + cart =====
   final List<Map<String, dynamic>> messages = [
@@ -58,18 +58,26 @@ class VoiceAIController extends ChangeNotifier {
   );
 
   VoiceAIController() {
-    voiceIO = MobileVoiceIO();
+    // เลือก VoiceIO ตาม platform
+    if (kIsWeb) {
+      voiceIO = WebVoiceIO();
+    } else {
+      voiceIO = MobileVoiceIO();
+    }
 
     final generationConfig = GenerationConfig(
-      // temperature: 0.2, // ลดความ “เพ้อ”
+      // temperature: 0.2, // ลดความ "เพ้อ"
       // topP: 0.8,
       // topK: 20,
       // maxOutputTokens: 120,
     );
 
-    model = GenerativeModel(
-      model: 'gemini-1.5-flash-latest',
-      apiKey: GeminiConstants.apiKey,
+    // 🔥 Get the Google AI service instance
+    final googleAI = FirebaseAI.googleAI();
+
+    // 🔥 Use that instance to get your model
+    model = googleAI.generativeModel(
+      model: 'gemini-2.5-flash',
       generationConfig: generationConfig,
     );
 
@@ -103,11 +111,49 @@ class VoiceAIController extends ChangeNotifier {
 
     _parser = IntentParser(items);
 
-    final preview = items.map((e) => e['name']).take(30).join(', ');
-    chat.sendMessage(Content.text('อัปเดตรายการเมนูล่าสุด: $preview'));
-    debugPrint(
-      '✅ VoiceAIController: catalog synced. menus=${items.length}, categories=${categories.length}',
+    // 🎯 Build menu catalog for Gemini context
+    final menuCatalog = items
+        .map((e) => '- ${e['name']}: ฿${e['price']}')
+        .join('\n');
+
+    final introContext = 'ร้านเราชื่อ "Amazon Cafe"';
+    final catalogContext =
+        '''
+📋 รายการเมนูปัจจุบัน (ดึงจาก API):
+$menuCatalog
+
+หมวดหมู่: ${categories.map((c) => c.title).join(', ')}
+''';
+
+    final policyContext = '''
+กติกาการตอบ:
+- ตอบเป็นภาษาไทยเท่านั้น
+- สั้น กระชับ ลงท้าย "ค่ะ"
+- ห้ามคำฟิลเลอร์/คำขอให้รอ เช่น "เดี๋ยว", "เดี๋ยวนะคะ", "สักครู่"
+- เมื่อลูกค้าสั่งเมนู ให้ยืนยันชัดเจน เช่น "รับโกโก้เย็น 2 แก้วค่ะ"
+- แนะนำเฉพาะเมนูที่มีจริงเท่านั้น
+- ถ้าลูกค้าสั่งของที่ไม่มี ให้บอกว่า "ขออภัยค่ะ ไม่มี" และแนะนำของที่มี
+''';
+
+    // 🔄 Rebuild chat with new context including live menu data
+    chat = model.startChat(
+      history: [
+        Content.text(introContext),
+        Content.text(catalogContext),
+        Content.text(policyContext),
+      ],
     );
+
+    debugPrint('');
+    debugPrint('✅ [VoiceAIController] Catalog synced from API');
+    debugPrint('   📦 Items: ${items.length}');
+    debugPrint('   📂 Categories: ${categories.length}');
+    debugPrint('   🎯 Gemini context updated with:');
+    debugPrint('      - Shop name');
+    debugPrint('      - Menu items (${items.length} items)');
+    debugPrint('      - Categories');
+    debugPrint('      - Policies');
+    debugPrint('');
   }
 
   /// เริ่ม/หยุดฟังเสียง
@@ -124,6 +170,40 @@ class VoiceAIController extends ChangeNotifier {
     await voiceIO.startListening(
       onResult: (String text) async {
         await processTranscription(text);
+      },
+      onError: (String error) async {
+        debugPrint('🚨 Voice error: $error');
+        isListening = false;
+
+        // 🎯 Add error message to chat with helpful tip
+        String chatMessage = error;
+        if (error.contains('ไม่สามารถรับเสียงได้ชัดเจน')) {
+          chatMessage =
+              '$error\n\n💡 เคล็ดลับ: พูดให้ชัดเจน ในที่เงียบ หรือใช้ปุ่มพิมพ์ข้างๆ ได้เลยค่ะ';
+        }
+
+        messages.add({'role': 'ai', 'text': chatMessage});
+        latestReply = chatMessage;
+        scrollToBottom();
+        notifyListeners();
+
+        // 🎯 Show snackbar to user with shorter message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+              action: SnackBarAction(
+                label: 'พิมพ์',
+                textColor: Colors.white,
+                onPressed: () {
+                  // This will be handled by the text input FAB in home.dart
+                },
+              ),
+            ),
+          );
+        }
       },
     );
   }
@@ -160,7 +240,11 @@ class VoiceAIController extends ChangeNotifier {
       }
 
       // 2) ส่งไปถาม Gemini
-      final response = await chat.sendMessage(Content.text(text));
+      if (chat == null) {
+        await _respondAndSpeak('ขออภัยค่ะ ระบบไม่พร้อม กรุณาลองใหม่ค่ะ');
+        return;
+      }
+      final response = await chat!.sendMessage(Content.text(text));
       var reply = response.text ?? '[ไม่มีคำตอบ]';
       reply = _sanitizeReply(reply);
       debugPrint('🤖 AI replied: $reply');
@@ -313,7 +397,10 @@ class VoiceAIController extends ChangeNotifier {
   }
 
   Future<String> getAIReply(String text) async {
-    final response = await chat.sendMessage(Content.text(text));
+    if (chat == null) {
+      return 'ขออภัยค่ะ ระบบไม่พร้อม กรุณาลองใหม่ค่ะ';
+    }
+    final response = await chat!.sendMessage(Content.text(text));
     final raw = response.text ?? '[ไม่มีคำตอบ]';
     final reply = _sanitizeReply(raw);
     messages
@@ -322,6 +409,18 @@ class VoiceAIController extends ChangeNotifier {
     latestReply = reply;
     notifyListeners();
     return reply;
+  }
+
+  /// 🎯 เคลียร์ข้อความล่าสุดหลังจาก order complete
+  void clearLatestMessage() {
+    latestReply = '';
+    notifyListeners();
+  }
+
+  /// 🎯 ตั้งค่า message custom (เช่นหลัง payment success)
+  void setLatestMessage(String message) {
+    latestReply = message;
+    notifyListeners();
   }
 
   @override

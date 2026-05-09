@@ -116,22 +116,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(CaterotyLoaded(categories: categories));
 
       debugPrint('📡 Fetching menus...');
-      if (menus!.isEmpty) {
-        menus = await _menuRepository.get();
-        debugPrint('✅ Menus fetched: ${menus?.length} items');
-      } else {
-        debugPrint(
-          '📡 Menus already exist: ${menus?.length} items, fetching new...',
-        );
-        var newMenu = await _menuRepository.get();
-        debugPrint('✅ New menus fetched: ${newMenu?.length} items');
-        for (var menu in newMenu!) {
-          var obj = menus!.where((e) => e.id == menu.id).firstOrNull;
-          if (obj == null) {
-            menus!.add(menu);
-          }
-        }
-      }
+      // 🔄 Always fetch fresh menu data (for refresh functionality)
+      menus = await _menuRepository.get();
+      debugPrint('✅ Menus fetched: ${menus?.length} items');
 
       if (shoppingCarts!.isNotEmpty) {
         int count = 0;

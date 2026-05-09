@@ -106,12 +106,67 @@ class _HomePageState extends State<HomePage> {
                       context.watch<VoiceAIController>().latestReply.isNotEmpty
                       ? context.watch<VoiceAIController>().latestReply
                       : "สวัสดีค่ะ มีอะไรให้ช่วยไหมคะ?",
+                  isRecording: context
+                      .watch<VoiceAIController>()
+                      .isListening, // 🎤 Sync recording state
+                ),
+
+                // === Text Input Fallback Button (when voice fails) ===
+                Positioned(
+                  bottom: 20,
+                  left: 90, // ข้างๆ AI button
+                  child: FloatingActionButton.small(
+                    backgroundColor: Colors.grey[700],
+                    onPressed: () {
+                      _showTextInputDialog(context);
+                    },
+                    tooltip: 'พิมพ์คำสั่ง',
+                    child: const Icon(Icons.edit, size: 20),
+                  ),
                 ),
               ],
             ),
             drawer: const DrawerMenu(),
           );
         },
+      ),
+    );
+  }
+
+  /// 📝 Show text input dialog for typing orders
+  void _showTextInputDialog(BuildContext context) {
+    final textController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('พิมพ์คำสั่ง'),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'เช่น: ชาเขียว 2 แก้ว',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ยกเลิก'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final text = textController.text.trim();
+              if (text.isNotEmpty) {
+                // 🎯 Send text to AI
+                context.read<VoiceAIController>().processTranscription(text);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('ส่ง'),
+          ),
+        ],
       ),
     );
   }
@@ -209,7 +264,12 @@ class _HomePageState extends State<HomePage> {
                       size: headerIconSize,
                       color: Colors.white,
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      debugPrint(
+                        '🔄 Refresh button pressed - forcing data refresh',
+                      );
+                      context.read<HomeBloc>().add(FetchDataEvent());
+                    },
                   ),
                 ],
               ),
@@ -250,6 +310,9 @@ class _HomePageState extends State<HomePage> {
                   }
 
                   if (state is PaymentSuccess) {
+                    // 🎯 Clear AI message after successful order
+                    context.read<VoiceAIController>().clearLatestMessage();
+
                     await Navigator.of(context).push<void>(
                       PrintReceipt.route(
                         state.carts!,
@@ -509,8 +572,14 @@ class _HomePageState extends State<HomePage> {
                     buildWhen: (previous, current) =>
                         current is MenuLoaded || current is MenuLoading,
                     builder: (_, state) {
+                      debugPrint(
+                        '🎯 MenuBuilder called with state: ${state.runtimeType}',
+                      );
                       if (state is MenuLoaded) {
                         List<Menu> menus = state.menus!;
+                        debugPrint(
+                          '📋 Displaying ${menus.length} menus in GridView',
+                        );
                         return Expanded(
                           child: GridView.count(
                             childAspectRatio: mobile ? 0.78 : .95,
@@ -591,6 +660,9 @@ class _HomePageState extends State<HomePage> {
                           ),
                         );
                       } else {
+                        debugPrint(
+                          '🔄 MenuBuilder: Showing loading indicator (state: ${state.runtimeType})',
+                        );
                         return Expanded(
                           child: Center(
                             child: CircularProgressIndicator(

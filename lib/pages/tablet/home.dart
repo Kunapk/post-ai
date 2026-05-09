@@ -87,7 +87,7 @@ class _TabletHomeState extends State<TabletHome> {
                     debugPrint("🎙️ เปิดโหมด AI");
                     context.read<VoiceAIController>().handleVoiceInput(context);
                   },
-                  lastMessage: "กำลังสั่ง ชานมไข่มุก", // ✅ แสดง bubble
+                  lastMessage: "สั่งผ่าน AI ตรงนี้", // ✅ แสดง bubble
                 ),
               ],
             ),
